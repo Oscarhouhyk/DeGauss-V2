@@ -55,7 +55,7 @@ OptimizationParams = dict(
     SH_lr_downscaling_end=2,
     ###### accumulation steps for training for sparse image collections
     accumulation_steps=4,
-    lambda_main_loss=4,
+    lambda_main_loss = 4,
     ##### use motion grad for image collections
     use_motion_grad=True,
     use_depth_smoothness_loss=True,

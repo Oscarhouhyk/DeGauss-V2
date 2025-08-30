@@ -97,6 +97,7 @@ def get_edge_mask(image, threshold=0.1, dilation_iterations=2):
 
     return torch.from_numpy(edge_mask_np).to(image.device).float()
 
+
 def normalize_depth(depth_i):
     """Normalise a depth map to [0,1] for visualisation.
 
@@ -109,6 +110,7 @@ def normalize_depth(depth_i):
 
 class BrightnessActivation(nn.Module):
     """Piece-wise linear brightness mapping used by the light-control branch."""
+
     def __init__(self):
         super(BrightnessActivation, self).__init__()
 
@@ -131,10 +133,13 @@ class BrightnessActivation(nn.Module):
 
         return output
 
-def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations, saving_iterations,
-                                       checkpoint_iterations, checkpoint, debug_from,
-                                       foreground_gaussians, scene, stage, tb_writer, train_iter, timer, background_gaussians=None,
-                                       expname='debug_2gs'):
+
+def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations,
+                                 saving_iterations,
+                                 checkpoint_iterations, checkpoint, debug_from,
+                                 foreground_gaussians, scene, stage, tb_writer, train_iter, timer,
+                                 background_gaussians=None,
+                                 expname='debug_2gs'):
     # ---------------------------------------------------------------------
     #  ➤  COARSE / FINE TRAINING LOOP (Foreground & Background Gaussians)
     # ---------------------------------------------------------------------
@@ -194,10 +199,10 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             foreground_gaussians.restore(model_params, optimization_params)
 
     # ---- Background Colors (near-black to avoid numerical issues) ----
-    bg_color = [1e-7, 1e-7, 1e-7]
-    background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
-    black_color = [1e-7, 1e-7, 1e-7]
-    black_bg = torch.tensor(black_color, dtype=torch.float32, device="cuda")
+    bg_color =  [1e-7, 1e-7, 1e-7]
+    background = 1- torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+    # black_color = 1 - [1e-7, 1e-7, 1e-7]
+    # black_bg = torch.tensor(black_color, dtype=torch.float32, device="cuda")
 
     # ---- CUDA Timing Events ----
     iter_start = torch.cuda.Event(enable_timing=True)
@@ -248,8 +253,6 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             random_loader = True
         loader = iter(viewpoint_stack_loader)
 
-
-
     # ---- Image Masking Setup ----
     actual_height = train_cams[0].image_height
     actual_width = train_cams[0].image_width
@@ -263,11 +266,10 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         pixel_valid_mask = cv2.resize(pixel_valid_mask, (actual_width, actual_height), interpolation=cv2.INTER_NEAREST)
         pixel_valid_mask = torch.from_numpy(pixel_valid_mask).unsqueeze(0).unsqueeze(0).float().cuda() > 0
     else:
-        pixel_valid_mask = torch.ones(actual_height, actual_width ).unsqueeze(0).unsqueeze(0).float().cuda()
+        pixel_valid_mask = torch.ones(actual_height, actual_width).unsqueeze(0).unsqueeze(0).float().cuda()
 
     # Vignette correction mask (lens distortion)
     if optimization_params.vignette_mask:
-
         vignette_rgb_path = optimization_params.vignette_mask
         vignette_rgb = Image.open(vignette_rgb_path)
         offset_x, offset_y = (32, 32)
@@ -308,7 +310,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             except StopIteration:
                 print("reset dataloader into random dataloader.")
                 if not random_loader:
-                    viewpoint_stack_loader = DataLoader(viewpoint_stack, batch_size=optimization_params.batch_size, shuffle=True,
+                    viewpoint_stack_loader = DataLoader(viewpoint_stack, batch_size=optimization_params.batch_size,
+                                                        shuffle=True,
                                                         num_workers=32, collate_fn=list)
                     random_loader = True
                 loader = iter(viewpoint_stack_loader)
@@ -392,10 +395,10 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
         # ---- Multi-Model Rendering Loop ----
         for viewpoint_cam in viewpoint_cams:
-
             # Render foreground (dynamic) Gaussians
-            render_pkg_dynamic_pers = render_foreground(viewpoint_cam, foreground_gaussians, pipeline_config, black_bg, stage=stage,
-                                                     cam_type=scene.dataset_type)
+            render_pkg_dynamic_pers = render_foreground(viewpoint_cam, foreground_gaussians, pipeline_config, background,
+                                                        stage=stage,
+                                                        cam_type=scene.dataset_type)
 
             image, viewspace_point_tensor, visibility_filter, radii = render_pkg_dynamic_pers["render"], \
                 render_pkg_dynamic_pers[
@@ -407,12 +410,14 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             gt_image = viewpoint_cam.original_image.float().cuda() / 255
 
             # Render background (static) Gaussians
-            render_pkg_second = render_background(viewpoint_cam, background_gaussians, pipeline_config, black_bg, stage='coarse',
-                                       cam_type=scene.dataset_type)
+            render_pkg_second = render_background(viewpoint_cam, background_gaussians, pipeline_config, background,
+                                                  stage='coarse',
+                                                  cam_type=scene.dataset_type)
 
             # Render motion probability mask
-            render_pkg_motion = render_mask(viewpoint_cam, foreground_gaussians, pipeline_config, background, stage=stage,
-                                              cam_type=scene.dataset_type)
+            render_pkg_motion = render_mask(viewpoint_cam, foreground_gaussians, pipeline_config, background,
+                                            stage=stage,
+                                            cam_type=scene.dataset_type)
             image_second = render_pkg_second["render"]
             motion_mask = render_pkg_motion["render"]
             motion_masks.append(motion_mask.unsqueeze(0))
@@ -438,7 +443,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         if (iteration - 1) % accumulation_steps == 0:
             visibility_filter_second = torch.cat(visibility_filter_list_second).any(dim=0)
         else:
-            visibility_filter_second = torch.logical_or(visibility_filter_second,torch.cat(visibility_filter_list_second).any(dim=0))
+            visibility_filter_second = torch.logical_or(visibility_filter_second,
+                                                        torch.cat(visibility_filter_list_second).any(dim=0))
 
         image_tensor_first = torch.cat(images, 0)
         gt_image_tensor = torch.cat(gt_images, 0)
@@ -531,7 +537,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     , gt_image_tensor[:, :3, :, :] * 0.9)
             else:
                 Ll1 = l1_loss(
-                    image_tensor_first * (motion_masks_first) + image_tensor_second.clone().detach() * (motion_masks_second)
+                    image_tensor_first * (motion_masks_first) + image_tensor_second.clone().detach() * (
+                        motion_masks_second)
                     , gt_image_tensor[:, :3, :, :] * 0.9)
             loss = optimization_params.lambda_main_loss * Ll1 + optimization_params.lambda_main_loss * ll2
 
@@ -539,10 +546,11 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         else:
             # Fine stage: focus on composite quality
             loss = optimization_params.lambda_main_loss * Ll1
- 
+
         # ---- Brightness Regularization Loss ----
         start_to_penal = optimization_params.densify_until_iter // 10
-        loss_light = 0.0001 * l1_loss(light_var * pixel_valid_mask, torch.ones_like(light_var).cuda() * pixel_valid_mask)
+        loss_light = 0.0001 * l1_loss(light_var * pixel_valid_mask,
+                                      torch.ones_like(light_var).cuda() * pixel_valid_mask)
 
         weight_penal_light_start = 0.001
         weight_penal_light_end = optimization_params.weight_penal_light_end
@@ -551,13 +559,13 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         if optimization_params.explicitly_update_brightness_control and optimization_params.use_brightness_control:
             image_second_without_light_var = image_second_to_show_g.clone().detach()
             this_light_var = torch.clamp(image_second_without_light_var * light_var, 0, 1 - 1e-9)
-            if iteration<=start_to_penal:
+            if iteration <= start_to_penal:
                 loss_light += 0.01 * l1_loss(this_light_var, gt_image_tensor)
             else:
-                if weight_penal_light<0.01:
-                    loss_light += (0.01-weight_penal_light) * l1_loss(this_light_var, gt_image_tensor)
+                if weight_penal_light < 0.01:
+                    loss_light += (0.01 - weight_penal_light) * l1_loss(this_light_var, gt_image_tensor)
 
-        ssim_notdense = 0.4 * (1.0 - ssim(image_tensor, gt_image_tensor[:, :3, :, :]))
+        ssim_notdense = 0.4 * optimization_params.downscale_ulti_loss * (1.0 - ssim(image_tensor, gt_image_tensor[:, :3, :, :]))
         loss_light += ssim_notdense
 
         # ---- Additional Brightness Regularization ----
@@ -566,9 +574,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
             if iteration > start_to_penal:
                 loss_light += weight_penal_light * l1_loss(light_var * pixel_valid_mask,
-                                                     torch.ones_like(light_var).cuda() * pixel_valid_mask)
-
-
+                                                           torch.ones_like(light_var).cuda() * pixel_valid_mask)
 
         # ---- Stage-Specific SSIM Loss ----
         if stage == 'coarse':
@@ -579,8 +585,9 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
         # ---- Temporal Smoothness Loss ----
         if stage == "fine" and hypernetwork_config.time_smoothness_weight != 0:
-            tv_loss = foreground_gaussians.compute_regulation(hypernetwork_config.time_smoothness_weight, hypernetwork_config.l1_time_planes,
-                                                   hypernetwork_config.plane_tv_weight)
+            tv_loss = foreground_gaussians.compute_regulation(hypernetwork_config.time_smoothness_weight,
+                                                              hypernetwork_config.l1_time_planes,
+                                                              hypernetwork_config.plane_tv_weight)
             loss += tv_loss
 
         # ---- Depth Separation Losses ----
@@ -588,8 +595,9 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             if optimization_params.detach_background_separation:
                 loss_depth_back = torch.maximum(
                     (
-                                depth_images_dy_tensor - (depth_images_tensor.clone().detach())) / scene.cameras_extent * pixel_valid_mask * (
-                                mask_comp_first > 0.6).clone().detach(),
+                            depth_images_dy_tensor - (
+                        depth_images_tensor.clone().detach())) / scene.cameras_extent * pixel_valid_mask * (
+                            mask_comp_first > 0.6).clone().detach(),
                     torch.tensor(0)).mean()
             else:
                 ########### this helps to push floaters further away from camera and be pruned afterwards
@@ -602,8 +610,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         if optimization_params.separation_low_prob:
             loss_depth_forward = torch.maximum(
                 (
-                            depth_images_tensor.clone().detach() - depth_images_dy_tensor) / scene.cameras_extent * pixel_valid_mask * (
-                            mask_comp_first < 0.4).clone().detach(),
+                        depth_images_tensor.clone().detach() - depth_images_dy_tensor) / scene.cameras_extent * pixel_valid_mask * (
+                        mask_comp_first < 0.4).clone().detach(),
                 torch.tensor(0)).mean()
             loss += 0.1 * loss_depth_forward
             if iteration % 100 == 0:
@@ -617,18 +625,15 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             loss_smooth_sta = depth_reg(depth_scaled.permute(0, 2, 3, 1), gt_image_tensor.permute(0, 2, 3, 1))
             loss += optimization_params.lambda_depth_smoothness * (loss_smooth_sta)
 
-
         # ---- Dynamic Content Diversity Loss ----
         if optimization_params.penalize_dynamic:
             dynamic_segment = image_tensor_first
-            static_disposed = (image_tensor_second ).clone().detach().cuda()
+            static_disposed = (image_tensor_second).clone().detach().cuda()
             d_ssim_str = (structural_ssim(dynamic_segment, static_disposed)) * pixel_valid_mask * (
                     mask_comp_first > 1 - vis_thresh)
 
-
             diversity_penalty = d_ssim_str.mean()
             loss += 0.01 * diversity_penalty
-
 
         # ---- Foreground/Background Component Losses ----
         if optimization_params.use_foreground_background_loss:
@@ -640,31 +645,30 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
             if optimization_params.ssim_loss_use:
                 ssim_loss_raw_first = ssim_raw(image_tensor_first, gt_image_tensor)
-                loss += 0.4 * ((1.0 - (ssim_loss_raw_first)) * masked_2d_first * pixel_valid_mask).mean()
+                loss += 0.4 * optimization_params.downscale_ulti_loss * ((1.0 - (ssim_loss_raw_first)) * masked_2d_first * pixel_valid_mask).mean()
 
-            loss += 2 * l1_comp_first
+            loss += 2 * optimization_params.downscale_ulti_loss * l1_comp_first
             masked_2d = mask_comp_second > 1 - vis_thresh
 
             l1_comp_second = l1_loss(image_tensor_second * masked_2d, gt_image_tensor * masked_2d)
 
             if optimization_params.ssim_loss_use:
                 ssim_raw_second = ssim_raw(image_tensor_second, gt_image_tensor)
-                loss += 0.4 * ((1.0 - ssim_raw_second) * masked_2d * pixel_valid_mask).mean()
+                loss += 0.4*optimization_params.downscale_ulti_loss * ((1.0 - ssim_raw_second) * masked_2d * pixel_valid_mask).mean()
 
-            loss += 2 * l1_comp_second
-
+            loss += 2*optimization_params.downscale_ulti_loss * l1_comp_second
 
         # ---- Gaussian Scale Regularization ----
         if optimization_params.use_penal_large_gaussians:
             max_scale = 0.1 * scene.cameras_extent
             scale_exp = torch.exp(foreground_gaussians._scaling)
-            scale_max_size = (torch.maximum( scale_exp.amax(dim=-1),
+            scale_max_size = (torch.maximum(scale_exp.amax(dim=-1),
                                             torch.tensor(max_scale).cuda()) - max_scale)
             scale_reg_max = 0.01 * scale_max_size.mean()
             loss_light += scale_reg_max
             scale_exp_second = torch.exp(background_gaussians._scaling)
-            scale_max_size_second = (torch.maximum( scale_exp_second.amax(dim=-1),
-                                            torch.tensor(max_scale).cuda()) - max_scale)
+            scale_max_size_second = (torch.maximum(scale_exp_second.amax(dim=-1),
+                                                   torch.tensor(max_scale).cuda()) - max_scale)
             scale_reg_second_max = 0.01 * scale_max_size_second.mean()
             loss_light += scale_reg_second_max
 
@@ -707,7 +711,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
         # ---- Gradient Collection from Multi-Model Rendering ----
         viewspace_point_tensor_grad = torch.zeros_like(viewspace_point_tensor)
-        if (iteration-1) % accumulation_steps == 0:
+        if (iteration - 1) % accumulation_steps == 0:
             viewspace_point_tensor_grad_second = torch.zeros_like(render_pkg_second['viewspace_points'])
 
         for idx in range(0, len(viewspace_point_tensor_list)):
@@ -718,7 +722,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 viewspace_point_tensor_grad_second = viewspace_point_tensor_grad_second + \
                                                      viewspace_point_tensor_list_second[idx].grad.clone()
             else:
-                viewspace_point_tensor_grad = viewspace_point_tensor_grad + viewspace_point_tensor_list[idx].grad.clone()
+                viewspace_point_tensor_grad = viewspace_point_tensor_grad + viewspace_point_tensor_list[
+                    idx].grad.clone()
                 viewspace_point_tensor_grad_second = viewspace_point_tensor_grad_second + \
                                                      viewspace_point_tensor_list_second[idx].grad
 
@@ -758,7 +763,6 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
             # ---- Debug Visualization (every 100 iterations) ----
             if iteration % 100 == 0:
-
                 out_debug_depth_dir = os.path.join(optimization_params.saving_folder, expname)
                 os.makedirs(out_debug_depth_dir, exist_ok=True)
 
@@ -799,17 +803,20 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     vmin=0, vmax=1)
                 ax[1, 4].set_title("Static Raw - GT Error")
                 ax[2, 0].imshow(normalize_depth((depth_images_dy_tensor * mask_comp_first[0,
-                                                                     :1] + depth_images_tensor * mask_comp_second[0,
-                                                                                                 :1])[
-                                               0].clone().detach().cpu().permute(1, 2, 0).numpy()), cmap='jet',
+                                                                          :1] + depth_images_tensor * mask_comp_second[
+                                                                                                      0,
+                                                                                                      :1])[
+                                                    0].clone().detach().cpu().permute(1, 2, 0).numpy()), cmap='jet',
                                 vmin=0, vmax=1)
                 ax[2, 0].set_title("Depth Image Pred")
-                ax[2, 1].imshow(normalize_depth((depth_images_dy_tensor)[0].clone().detach().cpu().permute(1, 2, 0).numpy()),
-                                cmap='jet', vmin=0, vmax=1)
+                ax[2, 1].imshow(
+                    normalize_depth((depth_images_dy_tensor)[0].clone().detach().cpu().permute(1, 2, 0).numpy()),
+                    cmap='jet', vmin=0, vmax=1)
                 ax[2, 1].set_title("Depth Image Pred dynamic")
-                ax[2, 2].imshow(normalize_depth((depth_images_tensor)[0].clone().detach().cpu().permute(1, 2, 0).numpy()),
-                                cmap='jet',
-                                vmin=0, vmax=1)
+                ax[2, 2].imshow(
+                    normalize_depth((depth_images_tensor)[0].clone().detach().cpu().permute(1, 2, 0).numpy()),
+                    cmap='jet',
+                    vmin=0, vmax=1)
                 ax[2, 2].set_title("Depth Image Pred static")
                 ax[2, 3].imshow(((motion_masks[0, 1:2, :,
                                   :] * pixel_valid_mask[0]).clone().detach().cpu().permute(1, 2, 0).numpy()),
@@ -824,14 +831,14 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 plt.savefig(os.path.join(out_debug_depth_dir, stage + '_' + str(iteration).zfill(6) + ".jpg"))
                 plt.close()
 
-
             timer.start()
             # ---- Adaptive Gaussian Densification & Pruning ----
             if iteration < optimization_params.densify_until_iter:
 
                 # Track foreground importance (using probability instead of radii)
-                foreground_gaussians.max_radii2D[visibility_filter] = torch.max(foreground_gaussians.max_radii2D[visibility_filter],
-                                                                      foreground_prob_tensor[visibility_filter])
+                foreground_gaussians.max_radii2D[visibility_filter] = torch.max(
+                    foreground_gaussians.max_radii2D[visibility_filter],
+                    foreground_prob_tensor[visibility_filter])
                 foreground_gaussians.add_densification_stats(viewspace_point_tensor_grad, visibility_filter)
 
                 # ---- Threshold Scheduling ----
@@ -851,9 +858,9 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     else:
                         # Second half: use minimum threshold
                         densify_threshold = optimization_params.densify_grad_threshold_after
-                    if accumulation_steps>1:
+                    if accumulation_steps > 1:
                         # Scale threshold for gradient accumulation
-                        densify_threshold = densify_threshold / (accumulation_steps )
+                        densify_threshold = densify_threshold / (accumulation_steps)
                     if optimization_params.make_foreground_thresh_larger:
                         # Make foreground densification more aggressive
                         densify_threshold = densify_threshold * 2
@@ -863,8 +870,9 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                         foreground_gaussians.get_xyz.shape[0] < optimization_params.max_gaussian_foreground:
                     size_threshold = 50 if iteration > optimization_params.opacity_reset_interval else None
 
-                    foreground_gaussians.densify(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold, 5, 5,
-                                      scene.model_path, iteration, stage)
+                    foreground_gaussians.densify(densify_threshold, opacity_threshold, scene.cameras_extent,
+                                                 size_threshold, 5, 5,
+                                                 scene.model_path, iteration, stage)
 
                 # ---- Pruning (Remove Gaussians) ----
                 if iteration > optimization_params.pruning_from_iter and iteration % optimization_params.pruning_interval == 0 and \
@@ -873,12 +881,14 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     if Finish_whose_seq:
                         # End-of-epoch pruning with probability-based criteria
                         run_pruning_prob = True
-                        foreground_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold,
-                                        run_pruning_prob=run_pruning_prob)
+                        foreground_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent,
+                                                   size_threshold,
+                                                   run_pruning_prob=run_pruning_prob)
                         Finish_whose_seq = False
                     else:
                         # Standard pruning
-                        foreground_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold)
+                        foreground_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent,
+                                                   size_threshold)
 
                 # ---- Optional Point Growing ----
                 if iteration % optimization_params.densification_interval == 0 and foreground_gaussians.get_xyz.shape[
@@ -895,7 +905,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             # ---- Foreground Model Optimization ----
             max_norm = 1.0
             # Optional gradient clipping (currently disabled)
-            # torch.nn.utils.clip_grad_norm_(foreground_gaussians._deformation.parameters(), max_norm) 
+            # torch.nn.utils.clip_grad_norm_(foreground_gaussians._deformation.parameters(), max_norm)
             if iteration < optimization_params.iterations:
                 foreground_gaussians.optimizer.step()
                 foreground_gaussians.optimizer.zero_grad(set_to_none=True)
@@ -940,7 +950,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     size_threshold = 50 if iteration > step_to_prune and iteration < int(
                         optimization_params.densify_until_iter * 0.8) else None
 
-                    background_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent, size_threshold)
+                    background_gaussians.prune(densify_threshold, opacity_threshold, scene.cameras_extent,
+                                               size_threshold)
 
                 # ---- Background Opacity Reset ----
                 if iteration % optimization_params.opacity_reset_interval == 0:
@@ -968,13 +979,13 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
     if stage == "fine":
 
         batch_size = 1
-        viewpoint_stack_index = list(range(len(train_cams)  + len(test_cams)))
+        viewpoint_stack_index = list(range(len(train_cams) + len(test_cams)))
         # if not viewpoint_stack and not opt.dataloader:
         # dnerf's branch
         del viewpoint_stack
         if optimization_params.eval_include_train_cams:
-            viewpoint_stack_index = list(range(len(train_cams)  + len(test_cams)))
-            data_list = [0] * len(train_cams)  + [2] * len(test_cams)
+            viewpoint_stack_index = list(range(len(train_cams) + len(test_cams)))
+            data_list = [0] * len(train_cams) + [2] * len(test_cams)
             viewpoint_stack = [i for i in train_cams] + [i for i in test_cams]
         else:
             viewpoint_stack_index = list(range(len(test_cams)))
@@ -983,9 +994,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
         for iteration in range(0, len(viewpoint_stack)):
 
-
             iter_start.record()
-
 
             # dynerf's branch
             if optimization_params.dataloader:
@@ -1028,8 +1037,9 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 viewspace_point_tensor_list_second = []
                 motion_masks = []
                 for viewpoint_cam in viewpoint_cams:
-                    render_pkg_dynamic_pers = render_foreground(viewpoint_cam, foreground_gaussians, pipeline_config, black_bg, stage=stage,
-                                                             cam_type=scene.dataset_type)
+                    render_pkg_dynamic_pers = render_foreground(viewpoint_cam, foreground_gaussians, pipeline_config,
+                                                                background, stage=stage,
+                                                                cam_type=scene.dataset_type)
                     image, viewspace_point_tensor, visibility_filter, radii = render_pkg_dynamic_pers["render"], \
                         render_pkg_dynamic_pers[
                             "viewspace_points"], render_pkg_dynamic_pers["visibility_filter"], render_pkg_dynamic_pers[
@@ -1038,12 +1048,14 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
                     gt_image = viewpoint_cam.original_image.float().cuda() / 255
 
-                    render_pkg_second = render_background(viewpoint_cam, background_gaussians, pipeline_config, black_bg, stage='coarse',
-                                               cam_type=scene.dataset_type)
+                    render_pkg_second = render_background(viewpoint_cam, background_gaussians, pipeline_config,
+                                                          background, stage='coarse',
+                                                          cam_type=scene.dataset_type)
                     image_second = render_pkg_second["render"]
 
-                    render_pkg_motion = render_mask(viewpoint_cam, foreground_gaussians, pipeline_config, background, stage=stage,
-                                                      cam_type=scene.dataset_type)
+                    render_pkg_motion = render_mask(viewpoint_cam, foreground_gaussians, pipeline_config, background,
+                                                    stage=stage,
+                                                    cam_type=scene.dataset_type)
 
                     motion_mask = render_pkg_motion["render"]
                     motion_masks.append(motion_mask.unsqueeze(0))
@@ -1067,7 +1079,6 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 motion_pro_first = motion_masks[:, 2:3, :, :] + 1e-6
                 motion_pro_second = motion_masks[:, 1:2, :, :] + 1e-6
 
-
                 if optimization_params.vignette_mask:
                     image_tensor_second = image_tensor_second * pixel_valid_mask * vignette_mask
                     gt_image_tensor = gt_image_tensor * pixel_valid_mask
@@ -1082,7 +1093,6 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 light_var = 0.5 + activation_light(motion_masks[:, 0:1, :, :].repeat(1, 3, 1, 1))
 
                 white_thresh = 0.9
-
 
                 if optimization_params.use_brightness_control:
                     image_second_to_show = image_tensor_second.clone().detach().cpu()
@@ -1101,9 +1111,6 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
                 # motion_masks_first = motion_pro_first  + 1e-6
                 # motion_masks_second =  1 - motion_pro_first + 1e-6
-
-
-
 
                 mask_comp_first = motion_masks_first
 
@@ -1222,7 +1229,8 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
     #####
 
 
-def training(dataset, hypernetwork_config, optimization_params, pipeline_config, testing_iterations, saving_iterations, checkpoint_iterations, checkpoint,
+def training(dataset, hypernetwork_config, optimization_params, pipeline_config, testing_iterations, saving_iterations,
+             checkpoint_iterations, checkpoint,
              debug_from, expname):
     """Entry-point that prepares data structures and launches the two-stage training."""
     tb_writer = prepare_output_and_logger(expname)
@@ -1238,25 +1246,29 @@ def training(dataset, hypernetwork_config, optimization_params, pipeline_config,
     import shutil
     os.makedirs(os.path.join(optimization_params.saving_folder, expname), exist_ok=True)
     shutil.copyfile('./output/' + expname + '/cfg_args',
-                    os.path.join(optimization_params.saving_folder, expname, 'cfg_args') )
+                    os.path.join(optimization_params.saving_folder, expname, 'cfg_args'))
 
     scene = Scene2gs_mixed(dataset, foreground_gaussians, load_coarse=None, gaussians_second=background_gaussians)
     foreground_gaussians.max_radii2D = torch.zeros_like(foreground_gaussians.max_radii2D).cuda()
     timer.start()
-    scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations, saving_iterations,
-                                       checkpoint_iterations, checkpoint, debug_from,
-                                       foreground_gaussians, scene, "coarse", tb_writer, optimization_params.coarse_iterations, timer,
-                                       background_gaussians=background_gaussians, expname=expname)
+    scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations,
+                                 saving_iterations,
+                                 checkpoint_iterations, checkpoint, debug_from,
+                                 foreground_gaussians, scene, "coarse", tb_writer,
+                                 optimization_params.coarse_iterations, timer,
+                                 background_gaussians=background_gaussians, expname=expname)
 
-    ##### ohhh twice we run this yeah
-    scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations, saving_iterations,
-                                       checkpoint_iterations, checkpoint, debug_from,
-                                       foreground_gaussians, scene, "fine", tb_writer, optimization_params.iterations, timer,
-                                       background_gaussians=background_gaussians, expname=expname)
+    scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_config, pipeline_config, testing_iterations,
+                                 saving_iterations,
+                                 checkpoint_iterations, checkpoint, debug_from,
+                                 foreground_gaussians, scene, "fine", tb_writer, optimization_params.iterations, timer,
+                                 background_gaussians=background_gaussians, expname=expname)
 
     from distutils.dir_util import copy_tree
     copy_tree("./output/" + expname + "/point_cloud",
-              os.path.join(optimization_params.saving_folder, expname,'point_cloud'))
+              os.path.join(optimization_params.saving_folder, expname, 'point_cloud'))
+
+
 def prepare_output_and_logger(expname):
     """Create run folder and optionally a TensorBoard writer.
 
@@ -1334,6 +1346,7 @@ if __name__ == "__main__":
 
     # Start GUI server, configure and run training
     torch.autograd.set_detect_anomaly(args.detect_anomaly)
-    training(lp.extract(args), hp.extract(args), op.extract(args), pp.extract(args), args.test_iterations, args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.expname)
-    
+    training(lp.extract(args), hp.extract(args), op.extract(args), pp.extract(args), args.test_iterations,
+             args.save_iterations, args.checkpoint_iterations, args.start_checkpoint, args.debug_from, args.expname)
+
     print("\nTraining complete.")

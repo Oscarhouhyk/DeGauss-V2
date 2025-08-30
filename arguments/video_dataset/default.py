@@ -49,7 +49,7 @@ OptimizationParams = dict(
     ###### Useful especially for image inputs
     accumulation_steps = 1,
     ##### encourage dynamic-static decomposition prediction normally 4 is ok
-    lambda_main_loss_=4,
+    lambda_main_loss =1,
     ############################################################
 
     saving_folder='./test/',

@@ -23,6 +23,5 @@ OptimizationParams = dict(
     downscale_mask_deform_lr = 0.01,
     separation_high_prob = True,
     separation_low_prob = True,
-    lambda_main_loss_= True
+    lambda_main_loss = 1
 )
-#### next reset SH or Not

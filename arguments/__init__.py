@@ -54,7 +54,7 @@ class ModelParams(ParamGroup):
         self._model_path = ""
         self._images = "images"
         self._resolution = -1
-        self._white_background = True
+        self._white_background = False
         self.data_device = "cuda"
         self.eval = True
         self.render_process = False
@@ -192,6 +192,7 @@ class OptimizationParams(ParamGroup):
         self.separation_high_prob = False
         self.detach_background_separation = True
         self.lambda_loss_depth_back = 0.1
+        self.downscale_ulti_loss = 1
 
 
 
