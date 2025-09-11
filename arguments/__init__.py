@@ -193,6 +193,7 @@ class OptimizationParams(ParamGroup):
         self.detach_background_separation = True
         self.lambda_loss_depth_back = 0.1
         self.downscale_ulti_loss = 1
+        self.force_white_background = False
 
 
 

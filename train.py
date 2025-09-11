@@ -200,7 +200,11 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
     # ---- Background Colors (near-black to avoid numerical issues) ----
     bg_color =  [1e-7, 1e-7, 1e-7]
-    background = 1- torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+    if optimization_params.force_white_background:
+        print("using white background")
+        background = 1- torch.tensor(bg_color, dtype=torch.float32, device="cuda")
+    else:
+        background = torch.tensor(bg_color, dtype=torch.float32, device="cuda")
     # black_color = 1 - [1e-7, 1e-7, 1e-7]
     # black_bg = torch.tensor(black_color, dtype=torch.float32, device="cuda")
 

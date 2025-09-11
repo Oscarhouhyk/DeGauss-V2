@@ -61,5 +61,5 @@ OptimizationParams = dict(
     timenet_output = 128,
     coarse_mean_override = False,
     ####### use white bg for aria data
-    white_background = True
+    force_white_background = True
 )
