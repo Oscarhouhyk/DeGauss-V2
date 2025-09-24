@@ -45,7 +45,7 @@ pip install -e submodules/simple-knn
 ```
 
 ## Data Preparation
-Please follow the instructions in [4DGaussians](https://github.com/hustvl/4DGaussians) for Neu3D and HyperNerf dataset preparation, and [SpotLessSplats](https://github.com/lilygoli/SpotLessSplats/tree/main) for RobustNerf and Nerf on-the-go dataset processing. For Aria Datasets, please refer to [project-aria](https://www.projectaria.com/resources/#resources-datasets) and prepare data with [Nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html#aria). The EPIC-Field dataset could be accessed [here](https://epic-kitchens.github.io/epic-fields/).
+Please follow the instructions in [4DGaussians](https://github.com/hustvl/4DGaussians) for Neu3D and HyperNerf dataset preparation, and [SpotLessSplats](https://github.com/lilygoli/SpotLessSplats/tree/main) for RobustNerf and Nerf on-the-go dataset processing. You could find our processed fused.ply file of Neu3D dataset [here](https://drive.google.com/file/d/1oTtwku3ITuijdMxcw6QOcsNSA6aMOqFX/view). For Aria Datasets, please refer to [project-aria](https://www.projectaria.com/resources/#resources-datasets) and prepare data with [Nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html#aria). The EPIC-Field dataset could be accessed [here](https://epic-kitchens.github.io/epic-fields/).
 
 
 The dataset structureshould look follows
