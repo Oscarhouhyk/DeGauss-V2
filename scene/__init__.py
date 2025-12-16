@@ -50,7 +50,7 @@ class Scene:
             print("Found transforms_train.json file, assuming Blender data set!")
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval, args.extension)
             dataset_type="blender"
-        elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")):
+        elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")): ### poses_bounds.npy
             scene_info = sceneLoadTypeCallbacks["dynerf"](args.source_path, args.white_background, args.eval)
             dataset_type="dynerf"
         elif os.path.exists(os.path.join(args.source_path,"dataset.json")):
@@ -126,6 +126,7 @@ class Scene:
             point_cloud_path = os.path.join(self.model_path, "point_cloud/iteration_{}".format(iteration))
         self.gaussians.save_ply(os.path.join(point_cloud_path, "point_cloud.ply"))
         self.gaussians.save_deformation(point_cloud_path)
+    
     def getTrainCameras(self, scale=1.0):
         return self.train_camera
     def getValCameras(self, scale=1.0):
@@ -167,7 +168,7 @@ class Scene2gs_mixed:
             scene_info = sceneLoadTypeCallbacks["Blender"](args.source_path, args.white_background, args.eval,
                                                            args.extension)
             dataset_type = "blender"
-        elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")):
+        elif os.path.exists(os.path.join(args.source_path, "poses_bounds.npy")):  ## poses_bounds.npy
             scene_info = sceneLoadTypeCallbacks["dynerf"](args.source_path, args.white_background, args.eval)
             dataset_type = "dynerf"
         elif os.path.exists(os.path.join(args.source_path, "dataset.json")):
@@ -176,7 +177,7 @@ class Scene2gs_mixed:
         elif os.path.exists(os.path.join(args.source_path, "train_meta.json")):
             scene_info = sceneLoadTypeCallbacks["PanopticSports"](args.source_path)
             dataset_type = "PanopticSports"
-        elif os.path.exists(os.path.join(args.source_path, "points3D_multipleview.ply")):
+        elif os.path.exists(os.path.join(args.source_path, "points3D_multipleview.ply")):  ## points3D_multipleview.ply
             scene_info = sceneLoadTypeCallbacks["MultipleView"](args.source_path)
             dataset_type = "MultipleView"
         else:

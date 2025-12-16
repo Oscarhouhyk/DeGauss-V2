@@ -14,6 +14,7 @@ import cv2
 import numpy as np
 import random
 import os, sys
+sys.path.append(os.path.abspath("./submodules/simple-knn"))
 import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim, l2_loss, lpips_loss, entropy_loss, l1_loss_with_mask, structural_ssim, \

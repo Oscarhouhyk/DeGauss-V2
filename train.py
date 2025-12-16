@@ -13,13 +13,17 @@ Dynamic Gaussian Splatting training script (release version).
 This refactor only adds concise documentation and removes duplicate imports
 while keeping the original variable names and overall structure intact.
 """
+import sys
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+sys.path.append(os.path.abspath("./submodules/simple-knn"))
 import torch.nn as nn
 from PIL import Image
 
 import cv2
 import numpy as np
 import random
-import os, sys
+
 import torch
 from random import randint
 from utils.loss_utils import l1_loss, ssim, entropy_loss, structural_ssim, \
@@ -1350,7 +1354,7 @@ if __name__ == "__main__":
     parser.add_argument("--test_iterations", nargs="+", type=int, default=[3000])
     parser.add_argument("--save_iterations", nargs="+", type=int, default=[19999, 39999, 79999, 99999, 119999])
     parser.add_argument("--quiet", action="store_true")
-    parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[])
+    parser.add_argument("--checkpoint_iterations", nargs="+", type=int, default=[599, 999, 4999, 999, 11999, 14999, 19999])
     parser.add_argument("--start_checkpoint", type=str, default=None)
     parser.add_argument("--expname", type=str, default="")
     parser.add_argument("--configs", type=str, default="")

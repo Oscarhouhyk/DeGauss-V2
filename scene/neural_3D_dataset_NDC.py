@@ -6,10 +6,12 @@ import os
 import cv2
 import numpy as np
 import torch
-from PIL import Image
+from PIL import Image, ImageFile
 from torch.utils.data import Dataset
 from torchvision import transforms as T
 from tqdm import tqdm
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 
 def normalize(v):
