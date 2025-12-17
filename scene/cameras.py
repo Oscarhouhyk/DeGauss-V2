@@ -18,7 +18,7 @@ class Camera(nn.Module):
     def __init__(self, colmap_id, R, T, FoVx, FoVy, image, gt_alpha_mask,
                  image_name, uid,
                  trans=np.array([0.0, 0.0, 0.0]), scale=1.0, data_device = "cuda", time = 0,
-                 mask = None, depth=None, SD_feature=None
+                 mask = None, depth=None, SD_feature=None, semantic_mask=None
                  ):
         super(Camera, self).__init__()
 
@@ -30,7 +30,11 @@ class Camera(nn.Module):
         self.FoVy = FoVy
         self.image_name = image_name
         self.time = time
-        self.SD_feature = torch.from_numpy( np.zeros((1,1)) ).float()
+        if SD_feature is not None:
+            self.SD_feature = SD_feature
+        else:
+            self.SD_feature = torch.from_numpy( np.zeros((1,1)) ).float()
+        self.semantic_mask = semantic_mask
 
         try:
             self.data_device = torch.device(data_device)

@@ -1,3 +1,4 @@
+from utils.semantic_utils import SemanticSegmentation
 from torch.utils.data import Dataset
 from scene.cameras import Camera
 import numpy as np
@@ -16,6 +17,7 @@ class FourDGSdataset(Dataset):
         self.dataset = dataset
         self.args = args
         self.dataset_type=dataset_type
+        self.semantic_segmenter = SemanticSegmentation()
 
     # def __getitem__(self, index):
     #     # breakpoint()
@@ -42,7 +44,7 @@ class FourDGSdataset(Dataset):
     #         #                   mask=mask, SD_feature = torch.from_numpy(caminfo.SD_feature).float().squeeze(-1))
     #         return Camera(colmap_id=index, R=R, T=T, FoVx=FovX, FoVy=FovY, image=image, gt_alpha_mask=None,
     #                       image_name=f"{index}", uid=index, data_device=torch.device("cuda"), time=time,
-    #                       mask=mask, SD_feature=1)
+    #                       mask=mask, SD_feature=1, semantic_mask=semantic_mask)
     #     else:
     #         return self.dataset[index]
 
@@ -66,15 +68,23 @@ class FourDGSdataset(Dataset):
                 time = caminfo.time
 
                 mask = caminfo.mask
+
+            semantic_mask = None
+            try:
+                if hasattr(caminfo, 'image_path'):
+                    target_size = (image.shape[1], image.shape[2])
+                    semantic_mask = self.semantic_segmenter.get_dynamic_mask(caminfo.image_path, target_size)
+            except:
+                pass
             try:
                 temp_name = caminfo.image_name
             except:
                 return Camera(colmap_id=index, R=R, T=T, FoVx=FovX, FoVy=FovY, image=image, gt_alpha_mask=None,
                                       image_name=f"{index}", uid=index, data_device=torch.device("cuda"), time=time,
-                                      mask=mask, SD_feature=1)
+                                      mask=mask, SD_feature=1, semantic_mask=semantic_mask)
             return Camera(colmap_id=index,R=R,T=T,FoVx=FovX,FoVy=FovY,image=image,gt_alpha_mask=None,
                               image_name=caminfo.image_name,uid=index,data_device=torch.device("cuda"),time=time,
-                              mask=mask)
+                              mask=mask, semantic_mask=semantic_mask)
         else:
             return self.dataset[index]
     def __len__(self):

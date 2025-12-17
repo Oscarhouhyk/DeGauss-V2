@@ -15,7 +15,6 @@ while keeping the original variable names and overall structure intact.
 """
 import sys
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 sys.path.append(os.path.abspath("./submodules/simple-knn"))
 import torch.nn as nn
 from PIL import Image
@@ -400,6 +399,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         foreground_prob_list = []
         depth_images = []
         depth_images_dy = []
+        semantic_masks = []
 
         # ---- Multi-Model Rendering Loop ----
         for viewpoint_cam in viewpoint_cams:
@@ -413,6 +413,15 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     "viewspace_points"], render_pkg_dynamic_pers["visibility_filter"], render_pkg_dynamic_pers["radii"]
             images.append(image.unsqueeze(0))
             depth_images_dy.append(render_pkg_dynamic_pers['depth'].unsqueeze(0))
+
+            if viewpoint_cam.semantic_mask is not None:
+                semantic_mask = viewpoint_cam.semantic_mask.cuda()
+                if semantic_mask.dim() == 2:
+                    semantic_mask = semantic_mask.unsqueeze(0)
+            else:
+                semantic_mask = torch.zeros((1, viewpoint_cam.image_height, viewpoint_cam.image_width)).cuda()
+            semantic_masks.append(semantic_mask.unsqueeze(0))
+
 
             # Ground truth image
             gt_image = viewpoint_cam.original_image.float().cuda() / 255
@@ -461,6 +470,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         depth_images_tensor = torch.cat(depth_images, 0)
         depth_images_dy_tensor = torch.cat(depth_images_dy, 0)
         foreground_prob_tensor = torch.cat(foreground_prob_list, 0).max(dim=0).values.cuda()
+        semantic_masks_tensor = torch.cat(semantic_masks, 0)
 
         # ---- Pruning Schedule Configuration ----
         if optimization_params.prune_small_foreground_visbility:
@@ -490,6 +500,10 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         # ---- Brightness Control Activation ----
         activation_light = BrightnessActivation()
         light_var = 0.5 + activation_light(motion_masks[:, 0:1, :, :].repeat(1, 3, 1, 1))
+
+        # Refined Brightness Control: Suppress influence in dynamic regions
+        light_var = light_var * (1 - semantic_masks_tensor) + 1.0 * semantic_masks_tensor
+
 
         # ---- Background Brightness Adjustment ----
         if optimization_params.use_brightness_control:
@@ -549,11 +563,18 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                         motion_masks_second)
                     , gt_image_tensor[:, :3, :, :] * 0.9)
             loss = optimization_params.lambda_main_loss * Ll1 + optimization_params.lambda_main_loss * ll2
+            # Semantic Prior Loss
+            l_semantic = l1_loss(motion_masks[:, 2:3, :, :] * semantic_masks_tensor, semantic_masks_tensor)
+            loss += 1.0 * l_semantic
 
 
         else:
             # Fine stage: focus on composite quality
             loss = optimization_params.lambda_main_loss * Ll1
+            # Semantic Prior Loss
+            l_semantic = l1_loss(motion_masks[:, 2:3, :, :] * semantic_masks_tensor, semantic_masks_tensor)
+            loss += 1.0 * l_semantic
+
 
         # ---- Brightness Regularization Loss ----
         start_to_penal = optimization_params.densify_until_iter // 10
@@ -854,6 +875,15 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 plt.savefig(os.path.join(out_debug_depth_dir, stage + '_' + str(iteration).zfill(6) + ".jpg"))
                 plt.close()
 
+                out_debug_semantic = os.path.join(optimization_params.saving_folder, expname, 'semantic_mask')
+                os.makedirs(out_debug_semantic, exist_ok=True)
+                if viewpoint_cam.semantic_mask is not None:
+                    sem_mask_cpu = viewpoint_cam.semantic_mask.cpu().numpy()
+                    if len(sem_mask_cpu.shape) == 3:
+                        sem_mask_cpu = sem_mask_cpu[0]
+                    sem_mask_vis = (sem_mask_cpu * 255).astype(np.uint8)
+                    cv2.imwrite(os.path.join(out_debug_semantic, viewpoint_cam.image_name + ".png"), sem_mask_vis)
+
             timer.start()
             # ---- Adaptive Gaussian Densification & Pruning ----
             if iteration < optimization_params.densify_until_iter:
@@ -1114,6 +1144,10 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                 activation_light = BrightnessActivation()
 
                 light_var = 0.5 + activation_light(motion_masks[:, 0:1, :, :].repeat(1, 3, 1, 1))
+                
+                # Refined Brightness Control: Suppress influence in dynamic regions
+                light_var = light_var * (1 - semantic_masks_tensor) + 1.0 * semantic_masks_tensor
+
 
                 white_thresh = 0.9
 
@@ -1170,6 +1204,16 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
                     with open(feature_out_path, "wb") as fout:
                         np.save(fout, ((mask_comp_first[0] * pixel_valid_mask[0])).clone().detach().cpu().permute(1, 2,
                                                                                                                   0).numpy())
+
+
+                    out_debug_semantic = os.path.join(optimization_params.saving_folder, expname, 'semantic_mask')
+                    os.makedirs(out_debug_semantic, exist_ok=True)
+                    if viewpoint_cam.semantic_mask is not None:
+                        sem_mask_cpu = viewpoint_cam.semantic_mask.cpu().numpy()
+                        if len(sem_mask_cpu.shape) == 3:
+                            sem_mask_cpu = sem_mask_cpu[0]
+                        sem_mask_vis = (sem_mask_cpu * 255).astype(np.uint8)
+                        cv2.imwrite(os.path.join(out_debug_semantic, viewpoint_cam.image_name + ".png"), sem_mask_vis)
 
                     out_debug_static_raw = os.path.join(optimization_params.saving_folder, expname,
                                                         'static_raw')
