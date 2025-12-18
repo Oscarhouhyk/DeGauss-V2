@@ -1,5 +1,5 @@
-CUDA_VISIBLE_DEVICES=7 python train.py \
- -s data/robustnerf/yoda \
+CUDA_VISIBLE_DEVICES=1 python train.py \
+ -s data/dynerf/cut_roasted_beef \
  --port 6019 \
- --expname yoda \
- --configs arguments/image_dataset/robustnerf.py \
+ --expname cut_roasted_beef_cutmirror \
+ --configs arguments/video_dataset/Neu3D.py \

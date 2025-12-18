@@ -15,7 +15,7 @@ while keeping the original variable names and overall structure intact.
 """
 import sys
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 sys.path.append(os.path.abspath("./submodules/simple-knn"))
 import torch.nn as nn
 from PIL import Image
@@ -238,6 +238,13 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
     train_cams = scene.getTrainCameras()
     val_cams = scene.getValCameras()
 
+    # Check for mirror masks
+    if len(train_cams) > 0:
+        if hasattr(train_cams[0], 'mirror_mask') and train_cams[0].mirror_mask is not None:
+            print(f"[INFO] Mirror masks detected! Loaded {len([c for c in train_cams if c.mirror_mask is not None])} masks out of {len(train_cams)} training cameras.")
+        else:
+            print("[INFO] No mirror masks detected in training cameras.")
+
     viewpoint_stack_index = list(range(len(train_cams)))
     if not viewpoint_stack and not optimization_params.dataloader:
         # Manual sampling mode - copy camera list
@@ -397,6 +404,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         visibility_filter_list_second = []
         viewspace_point_tensor_list_second = []
         motion_masks = []
+        mirror_masks_list = []
         foreground_prob_list = []
         depth_images = []
         depth_images_dy = []
@@ -441,6 +449,11 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
             radii_list_second.append(render_pkg_second['radii'].unsqueeze(0))
             viewspace_point_tensor_list_second.append(render_pkg_second['viewspace_points'])
             visibility_filter_list_second.append(render_pkg_second['visibility_filter'].unsqueeze(0))
+            
+            if viewpoint_cam.mirror_mask is not None:
+                mirror_masks_list.append(viewpoint_cam.mirror_mask.cuda())
+            else:
+                mirror_masks_list.append(torch.zeros_like(image[0:1]))
 
         # ---- Batch Tensor Consolidation ----
         radii = torch.cat(radii_list, 0).max(dim=0).values
@@ -461,6 +474,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         depth_images_tensor = torch.cat(depth_images, 0)
         depth_images_dy_tensor = torch.cat(depth_images_dy, 0)
         foreground_prob_tensor = torch.cat(foreground_prob_list, 0).max(dim=0).values.cuda()
+        mirror_masks_tensor = torch.cat(mirror_masks_list, 0)
 
         # ---- Pruning Schedule Configuration ----
         if optimization_params.prune_small_foreground_visbility:
@@ -476,6 +490,13 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         else:
             motion_pro_first = motion_masks[:, 2:3, :, :] + 1e-6
             motion_pro_second = motion_masks[:, 1:2, :, :] + 1e-6
+        
+        # Adjust for mirror regions
+        if mirror_masks_tensor.sum() > 0:
+            # Reduce foreground probability in mirror regions
+            motion_pro_first = motion_pro_first * (1 - mirror_masks_tensor)
+            # Increase background probability in mirror regions
+            motion_pro_second = torch.max(motion_pro_second, mirror_masks_tensor)
 
         # ---- Apply Image Masks ----
         if optimization_params.vignette_mask:
@@ -529,6 +550,16 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
         # ---- Primary Loss Computation ----
         Ll1 = l1_loss(image_tensor, gt_image_tensor[:, :3, :, :])
+        
+        # Adjust loss for mirror regions
+        if mirror_masks_tensor.sum() > 0:
+            loss_weight_map = torch.ones_like(image_tensor)
+            loss_weight_map[mirror_masks_tensor.bool().repeat(1, 3, 1, 1)] = 0.5 # Tolerance
+            Ll1 = torch.abs((image_tensor - gt_image_tensor[:, :3, :, :]) * loss_weight_map).mean()
+            
+            if iteration % 100 == 0:
+                 print(f"[ITER {iteration}] Mirror mask active. Masked pixels: {mirror_masks_tensor.sum().item()} / {mirror_masks_tensor.numel()}")
+
         psnr_ = psnr(image_tensor, gt_image_tensor).mean().double()
 
         # ---- Stage-Specific Loss ----

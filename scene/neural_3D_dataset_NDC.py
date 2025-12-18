@@ -295,7 +295,7 @@ class Neural3D_NDC_Dataset(Dataset):
                 poses_i_train.append(i)
         self.poses = poses[poses_i_train]
         self.poses_all = poses
-        self.image_paths, self.image_poses, self.image_times, N_cam, N_time = self.load_images_path(videos, self.split)
+        self.image_paths, self.image_poses, self.image_times, N_cam, N_time, self.mirror_mask_paths = self.load_images_path(videos, self.split)
         self.cam_number = N_cam
         self.time_number = N_time
 
@@ -306,6 +306,7 @@ class Neural3D_NDC_Dataset(Dataset):
 
     def load_images_path(self, videos, split):
         image_paths = []
+        mirror_mask_paths = []
         image_poses = []
         image_times = []
         N_cams = 0
@@ -323,6 +324,7 @@ class Neural3D_NDC_Dataset(Dataset):
             count = 0
             video_images_path = video_path.split('.')[0]
             image_path = os.path.join(video_images_path, "images")
+            mirror_mask_path = os.path.join(video_images_path, "mirror_masks")
             video_frames = cv2.VideoCapture(video_path)
             # if video_path.split('/')[-1] == "cam06.mp4" or video_path.split('/')[-1] == "cam09.mp4":
             #     continue
@@ -355,6 +357,13 @@ class Neural3D_NDC_Dataset(Dataset):
             for idx, path in enumerate(images_path):
                 if this_count >= countss: break
                 image_paths.append(os.path.join(image_path, path))
+                
+                mirror_mask_file = os.path.join(mirror_mask_path, path)
+                if os.path.exists(mirror_mask_file):
+                    mirror_mask_paths.append(mirror_mask_file)
+                else:
+                    mirror_mask_paths.append(None)
+
                 pose = np.array(self.poses_all[index])
                 R = pose[:3, :3]
                 R = -R
@@ -370,7 +379,7 @@ class Neural3D_NDC_Dataset(Dataset):
 
             #     video_data_save[count] = img.permute(1,2,0)
             #     count += 1
-        return image_paths, image_poses, image_times, N_cams, N_time
+        return image_paths, image_poses, image_times, N_cams, N_time, mirror_mask_paths
 
     def __len__(self):
         return len(self.image_paths)
@@ -381,7 +390,16 @@ class Neural3D_NDC_Dataset(Dataset):
 
         # img = self.transform(img)
         img = torch.from_numpy(np.asarray(img)).permute(2, 0, 1)
-        return img, self.image_poses[index], self.image_times[index]
+
+        mirror_mask = None
+        if self.mirror_mask_paths[index] is not None:
+            mirror_mask = Image.open(self.mirror_mask_paths[index]).convert('L')
+            mirror_mask = mirror_mask.resize(self.img_wh, Image.NEAREST)
+            mirror_mask = torch.from_numpy(np.asarray(mirror_mask)).float() / 255.0
+            mirror_mask = (mirror_mask > 0.5).float()
+            mirror_mask = mirror_mask.unsqueeze(0)
+
+        return img, self.image_poses[index], self.image_times[index], mirror_mask
 
     def load_pose(self, index):
         return self.image_poses[index]

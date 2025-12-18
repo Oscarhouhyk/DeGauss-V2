@@ -51,7 +51,14 @@ class FourDGSdataset(Dataset):
 
         if self.dataset_type != "PanopticSports":
             try:
-                image, w2c, time = self.dataset[index]
+                # Try unpacking 4 values (including mirror_mask)
+                data = self.dataset[index]
+                if len(data) == 4:
+                    image, w2c, time, mirror_mask = data
+                else:
+                    image, w2c, time = data
+                    mirror_mask = None
+                
                 R,T = w2c
                 FovX = focal2fov(self.dataset.focal[0], image.shape[2])
                 FovY = focal2fov(self.dataset.focal[0], image.shape[1])
@@ -66,15 +73,17 @@ class FourDGSdataset(Dataset):
                 time = caminfo.time
 
                 mask = caminfo.mask
+                mirror_mask = getattr(caminfo, 'mirror_mask', None)
+
             try:
                 temp_name = caminfo.image_name
             except:
                 return Camera(colmap_id=index, R=R, T=T, FoVx=FovX, FoVy=FovY, image=image, gt_alpha_mask=None,
                                       image_name=f"{index}", uid=index, data_device=torch.device("cuda"), time=time,
-                                      mask=mask, SD_feature=1)
+                                      mask=mask, mirror_mask=mirror_mask, SD_feature=1)
             return Camera(colmap_id=index,R=R,T=T,FoVx=FovX,FoVy=FovY,image=image,gt_alpha_mask=None,
                               image_name=caminfo.image_name,uid=index,data_device=torch.device("cuda"),time=time,
-                              mask=mask)
+                              mask=mask, mirror_mask=mirror_mask)
         else:
             return self.dataset[index]
     def __len__(self):
