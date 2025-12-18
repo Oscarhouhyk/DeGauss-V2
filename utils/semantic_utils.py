@@ -85,7 +85,8 @@ class SemanticSegmentation:
         # Pascal VOC classes: person is 15.
         # Let's check torchvision DeepLabV3 classes.
         # Expanded dynamic classes: aeroplane, bicycle, bird, boat, bus, car, cat, cow, dog, horse, motorbike, person, sheep, train
-        self.dynamic_classes = [1, 2, 3, 4, 6, 7, 8, 10, 12, 13, 14, 15, 17, 19]
+        #self.dynamic_classes = [1, 2, 3, 4, 6, 7, 8, 10, 12, 13, 14, 15, 17, 19]
+        self.dynamic_classes = [15]
 
     def load_model(self):
         if self.model is None:

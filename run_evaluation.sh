@@ -1,3 +1,3 @@
-CUDA_VISIBLE_DEVICES=1 python calc_metric_static.py \
+CUDA_VISIBLE_DEVICES=1 python calc_metric.py \
  -d './test/' \
- -s yoda
+ -s hot3d_semantic

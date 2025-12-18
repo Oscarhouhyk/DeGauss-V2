@@ -57,6 +57,8 @@ def render_background(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch
         raster_settings = viewpoint_camera['camera']
         time = torch.tensor(viewpoint_camera['time']).to(means3D.device).repeat(means3D.shape[0], 1)
 
+    
+
     rasterizer = GaussianRasterizer(raster_settings=raster_settings)
 
     # means3D = pc.get_xyz
@@ -117,6 +119,23 @@ def render_background(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch
             # shs =
     else:
         colors_precomp = override_color
+    
+     # --- Safety Checks for render_foreground ---
+    if torch.isnan(means3D_final).any() or torch.isinf(means3D_final).any():
+        means3D_final = torch.nan_to_num(means3D_final)
+    if torch.isnan(scales_final).any() or torch.isinf(scales_final).any():
+        scales_final = torch.nan_to_num(scales_final)
+    if torch.isnan(rotations_final).any() or torch.isinf(rotations_final).any():
+        rotations_final = torch.nan_to_num(rotations_final)
+    if torch.isnan(opacity).any() or torch.isinf(opacity).any():
+        opacity = torch.nan_to_num(opacity)
+    if 'shs_final' in locals() and shs_final is not None:
+        if torch.isnan(shs_final).any() or torch.isinf(shs_final).any():
+            shs_final = torch.nan_to_num(shs_final)
+    if 'colors_precomp' in locals() and colors_precomp is not None:
+        if torch.isnan(colors_precomp).any() or torch.isinf(colors_precomp).any():
+            colors_precomp = torch.nan_to_num(colors_precomp)
+    # -------------------------------------------
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     # time3 = get_time()
@@ -241,6 +260,23 @@ def render_foreground(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch
             # shs =
     else:
         colors_precomp = override_color
+
+     # --- Safety Checks for render_foreground ---
+    if torch.isnan(means3D_final).any() or torch.isinf(means3D_final).any():
+        means3D_final = torch.nan_to_num(means3D_final)
+    if torch.isnan(scales_final).any() or torch.isinf(scales_final).any():
+        scales_final = torch.nan_to_num(scales_final)
+    if torch.isnan(rotations_final).any() or torch.isinf(rotations_final).any():
+        rotations_final = torch.nan_to_num(rotations_final)
+    if torch.isnan(opacity).any() or torch.isinf(opacity).any():
+        opacity = torch.nan_to_num(opacity)
+    if 'shs_final' in locals() and shs_final is not None:
+        if torch.isnan(shs_final).any() or torch.isinf(shs_final).any():
+            shs_final = torch.nan_to_num(shs_final)
+    if 'colors_precomp' in locals() and colors_precomp is not None:
+        if torch.isnan(colors_precomp).any() or torch.isinf(colors_precomp).any():
+            colors_precomp = torch.nan_to_num(colors_precomp)
+    # -------------------------------------------
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     # time3 = get_time()
@@ -370,6 +406,23 @@ def render_mask(viewpoint_camera, pc: GaussianModel, pipe, bg_color: torch.Tenso
         colors_precomp[..., 0] = light_var
         colors_precomp[..., 1] = light_var_dy  # mask_dy
         colors_precomp[..., -1] = mask_dy
+    
+    # --- Added Safety Checks to prevent CUDA illegal memory access ---
+    if means3D_final is not None:
+        means3D_final = torch.nan_to_num(means3D_final)
+    if scales_final is not None:
+        scales_final = torch.nan_to_num(scales_final)
+    if rotations_final is not None:
+        rotations_final = torch.nan_to_num(rotations_final)
+    if opacity is not None:
+        opacity = torch.nan_to_num(opacity)
+    if shs_final is not None:
+        shs_final = torch.nan_to_num(shs_final)
+    if colors_precomp is not None:
+        colors_precomp = torch.nan_to_num(colors_precomp)
+    if cov3D_precomp is not None:
+        cov3D_precomp = torch.nan_to_num(cov3D_precomp)
+    # ---------------------------------------------------------------
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     # time3 = get_time()
@@ -524,6 +577,23 @@ def render_foreground_with_mask(viewpoint_camera, pc: GaussianModel, pipe, bg_co
         colors_precomp[..., 1] = light_var_dy  # mask_dy
         colors_precomp[..., -1] = mask_dy
 
+     # --- Safety Checks for render_foreground ---
+    if torch.isnan(means3D_final).any() or torch.isinf(means3D_final).any():
+        means3D_final = torch.nan_to_num(means3D_final)
+    if torch.isnan(scales_final).any() or torch.isinf(scales_final).any():
+        scales_final = torch.nan_to_num(scales_final)
+    if torch.isnan(rotations_final).any() or torch.isinf(rotations_final).any():
+        rotations_final = torch.nan_to_num(rotations_final)
+    if torch.isnan(opacity).any() or torch.isinf(opacity).any():
+        opacity = torch.nan_to_num(opacity)
+    if 'shs_final' in locals() and shs_final is not None:
+        if torch.isnan(shs_final).any() or torch.isinf(shs_final).any():
+            shs_final = torch.nan_to_num(shs_final)
+    if 'colors_precomp' in locals() and colors_precomp is not None:
+        if torch.isnan(colors_precomp).any() or torch.isinf(colors_precomp).any():
+            colors_precomp = torch.nan_to_num(colors_precomp)
+    # -------------------------------------------
+
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     # time3 = get_time()
     rendered_image, radii, depth = rasterizer(
@@ -562,6 +632,23 @@ def render_foreground_with_mask(viewpoint_camera, pc: GaussianModel, pipe, bg_co
             # shs =
     else:
         colors_precomp = override_color
+
+     # --- Safety Checks for render_foreground ---
+    if torch.isnan(means3D_final).any() or torch.isinf(means3D_final).any():
+        means3D_final = torch.nan_to_num(means3D_final)
+    if torch.isnan(scales_final).any() or torch.isinf(scales_final).any():
+        scales_final = torch.nan_to_num(scales_final)
+    if torch.isnan(rotations_final).any() or torch.isinf(rotations_final).any():
+        rotations_final = torch.nan_to_num(rotations_final)
+    if torch.isnan(opacity).any() or torch.isinf(opacity).any():
+        opacity = torch.nan_to_num(opacity)
+    if 'shs_final' in locals() and shs_final is not None:
+        if torch.isnan(shs_final).any() or torch.isinf(shs_final).any():
+            shs_final = torch.nan_to_num(shs_final)
+    if 'colors_precomp' in locals() and colors_precomp is not None:
+        if torch.isnan(colors_precomp).any() or torch.isinf(colors_precomp).any():
+            colors_precomp = torch.nan_to_num(colors_precomp)
+    # -------------------------------------------
 
     # Rasterize visible Gaussians to image, obtain their radii (on screen).
     # time3 = get_time()

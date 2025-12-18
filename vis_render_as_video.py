@@ -4,9 +4,10 @@ import numpy as np
 import imageio
 from matplotlib import cm
 from tqdm import tqdm
+import re
 
 
-def process_images(seq_name, base_path='./test'):
+def process_images(seq_name, base_path='./test'): 
     """
     Process mask and light images, compute results, and save visualization images.
     """
@@ -68,12 +69,13 @@ def process_images(seq_name, base_path='./test'):
         imageio.imwrite(mask_vis_path, color_image)
 
 
-def create_video(seq_name, base_path='./test', fps=30):
+def create_video(seq_name, base_path='./test', fps=3):
     """
     Create a video by horizontally concatenating corresponding frames from specified folders.
     """
     parent_folder = os.path.join(base_path, seq_name)
-    output_video = os.path.join(parent_folder, 'render.mp4')
+    #output_video = os.path.join(parent_folder, f'render_{fps}.mp4')
+    output_video = f"/data/houyj/multimodal/DeGauss/test/hot3d/render_{fps}.mp4"
 
     subfolder_order = ["gt", "full_pred", "image_dyvis", "static_raw", "mask_vis"]
 
@@ -87,10 +89,12 @@ def create_video(seq_name, base_path='./test', fps=30):
     image_lists = []
     for subfolder in subfolder_order:
         folder_path = os.path.join(parent_folder, subfolder)
+
         images = sorted([
             f for f in os.listdir(folder_path)
             if f.lower().endswith(('.png', '.jpg', '.jpeg')) and 'left' not in f
-        ])
+        ], key=lambda x: [int(c) if c.isdigit() else c for c in re.split(r'(\d+)', x)])
+
         if not images:
             raise ValueError(f"No images found in subfolder: {subfolder}")
         image_paths = [os.path.join(folder_path, f) for f in images]
@@ -121,7 +125,7 @@ def create_video(seq_name, base_path='./test', fps=30):
 
 if __name__ == "__main__":
     ###### after training the sequence, visualize the dynamic-static decomposition as a video
-    SEQ_NAME = 'yoda'
+    SEQ_NAME = 'hot3d'
     BASE_PATH = './test'
 
     process_images(SEQ_NAME, BASE_PATH)
