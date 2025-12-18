@@ -63,7 +63,7 @@ class FourDGSdataset(Dataset):
                 FovX = focal2fov(self.dataset.focal[0], image.shape[2])
                 FovY = focal2fov(self.dataset.focal[0], image.shape[1])
                 mask=None
-            except:
+            except Exception:
                 caminfo = self.dataset[index]
                 image = caminfo.image
                 R = caminfo.R

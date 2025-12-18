@@ -386,7 +386,7 @@ class Neural3D_NDC_Dataset(Dataset):
 
     def __getitem__(self, index):
         img = Image.open(self.image_paths[index])
-        img = img.resize(self.img_wh, Image.LANCZOS)
+        img = img.resize(self.img_wh, Image.BILINEAR)
 
         # img = self.transform(img)
         img = torch.from_numpy(np.asarray(img)).permute(2, 0, 1)

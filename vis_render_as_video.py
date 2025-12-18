@@ -121,7 +121,7 @@ def create_video(seq_name, base_path='./test', fps=30):
 
 if __name__ == "__main__":
     ###### after training the sequence, visualize the dynamic-static decomposition as a video
-    SEQ_NAME = 'yoda'
+    SEQ_NAME = 'cut_roasted_beef_cutmirror'
     BASE_PATH = './test'
 
     process_images(SEQ_NAME, BASE_PATH)

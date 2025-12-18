@@ -240,15 +240,21 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
 
     # Check for mirror masks
     if len(train_cams) > 0:
-        if hasattr(train_cams[0], 'mirror_mask') and train_cams[0].mirror_mask is not None:
-            print(f"[INFO] Mirror masks detected! Loaded {len([c for c in train_cams if c.mirror_mask is not None])} masks out of {len(train_cams)} training cameras.")
-        else:
-            print("[INFO] No mirror masks detected in training cameras.")
+        # Only check the first camera to avoid triggering full dataset loading
+        try:
+            first_cam = train_cams[0]
+            if hasattr(first_cam, 'mirror_mask') and first_cam.mirror_mask is not None:
+                print(f"[INFO] Mirror masks detected in the first training camera. Assuming masks are available.")
+            else:
+                print("[INFO] No mirror masks detected in the first training camera.")
+        except Exception as e:
+            print(f"[INFO] Could not check for mirror masks on initialization: {e}")
 
     viewpoint_stack_index = list(range(len(train_cams)))
     if not viewpoint_stack and not optimization_params.dataloader:
         # Manual sampling mode - copy camera list
-        viewpoint_stack = [i for i in train_cams]
+        print("Loading all training cameras into memory (this may take a while)...")
+        viewpoint_stack = [i for i in tqdm(train_cams, desc="Loading cameras")]
         viewpoint_stack_index_save = copy.deepcopy(viewpoint_stack_index)
 
     batch_size = optimization_params.batch_size
@@ -474,7 +480,7 @@ def scene_reconstruction_degauss(dataset, optimization_params, hypernetwork_conf
         depth_images_tensor = torch.cat(depth_images, 0)
         depth_images_dy_tensor = torch.cat(depth_images_dy, 0)
         foreground_prob_tensor = torch.cat(foreground_prob_list, 0).max(dim=0).values.cuda()
-        mirror_masks_tensor = torch.cat(mirror_masks_list, 0)
+        mirror_masks_tensor = torch.stack(mirror_masks_list, 0)
 
         # ---- Pruning Schedule Configuration ----
         if optimization_params.prune_small_foreground_visbility:
