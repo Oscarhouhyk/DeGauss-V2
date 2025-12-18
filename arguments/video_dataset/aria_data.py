@@ -4,7 +4,7 @@ ModelParams=dict(
      'grid_dimensions': 2,
      'input_coordinate_dim': 4,
      'output_coordinate_dim': 16,
-     'resolution': [256, 256, 256, 1400]
+     'resolution': [256, 256, 256, 2000]
 ##### 1400 as half the sequence length of aria data
 #### lower resolution and multi res [1, 2] for faster training
     },

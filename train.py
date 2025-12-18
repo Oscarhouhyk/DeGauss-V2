@@ -15,7 +15,7 @@ while keeping the original variable names and overall structure intact.
 """
 import sys
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+#os.environ["CUDA_VISIBLE_DEVICES"] = "7"
 sys.path.append(os.path.abspath("./submodules/simple-knn"))
 import torch.nn as nn
 from PIL import Image

@@ -292,6 +292,9 @@ class GaussianModel_dynamic:
         self._deformation_accum = torch.zeros((self.get_xyz.shape[0], 3), device="cuda")
         ##### 0.01
         self.downscale_mask_form = training_args.downscale_mask_deform_lr
+
+        self.spatial_lr_scale = self.spatial_lr_scale * 2
+        
         print('self.spatial_lr_scale', self.spatial_lr_scale)
 
         l = [
