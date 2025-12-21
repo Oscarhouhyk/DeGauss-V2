@@ -1,5 +1,5 @@
-CUDA_VISIBLE_DEVICES=7 python train.py \
- -s /data/houyj/multimodal/DeGauss/data/nerf-on-the-go/mountain \
+CUDA_VISIBLE_DEVICES=1 python train.py \
+ -s /data/hejq/DeGauss/data/hot3d/aria_seq_1 \
  --port 6018 \
- --expname mountain_semantic \
- --configs arguments/image_dataset/nerfonthego_outdoor.py \
+ --expname hot3d_semantic_rerun \
+ --configs arguments/video_dataset/aria_data.py \

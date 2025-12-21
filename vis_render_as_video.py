@@ -69,15 +69,17 @@ def process_images(seq_name, base_path='./test'):
         imageio.imwrite(mask_vis_path, color_image)
 
 
-def create_video(seq_name, base_path='./test', fps=3):
+def create_video(seq_name, base_path='./test', fps=30):
     """
     Create a video by horizontally concatenating corresponding frames from specified folders.
     """
     parent_folder = os.path.join(base_path, seq_name)
-    #output_video = os.path.join(parent_folder, f'render_{fps}.mp4')
-    output_video = f"/data/houyj/multimodal/DeGauss/test/hot3d/render_{fps}.mp4"
+    output_video = os.path.join(parent_folder, f'render_{fps}.mp4')
+    #output_video = f"/data/houyj/multimodal/DeGauss/test/hot3d/render_{fps}.mp4"
 
-    subfolder_order = ["gt", "full_pred", "image_dyvis", "static_raw", "mask_vis"]
+    #subfolder_order = ["gt", "full_pred", "image_dyvis", "static_raw", "mask_vis"]
+
+    subfolder_order = ["gt", "full_pred", "image_dyvis", "static_dispose", "mask_vis"]
 
     # Validate folders
     for subfolder in subfolder_order:
@@ -125,7 +127,7 @@ def create_video(seq_name, base_path='./test', fps=3):
 
 if __name__ == "__main__":
     ###### after training the sequence, visualize the dynamic-static decomposition as a video
-    SEQ_NAME = 'hot3d'
+    SEQ_NAME = 'hot3d_semantic_rerun'
     BASE_PATH = './test'
 
     process_images(SEQ_NAME, BASE_PATH)
