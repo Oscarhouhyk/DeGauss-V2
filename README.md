@@ -20,11 +20,9 @@ pip install -e submodules/depth-diff-gaussian-rasterization
 pip install -e submodules/simple-knn
 ```
 
-## 数据集链接 & 数据集结构
+## 数据集
 **我们在以下的数据集中各挑选了一个场景进行项目复现以及实验。**
-1. Egocentric video sequences: ADT, AEA, Hot3D , Epic-Field. 
-
-For Aria Datasets, please refer to [project-aria](https://www.projectaria.com/resources/#resources-datasets) and prepare data with [Nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html#aria). The EPIC-Field dataset could be accessed [here](https://epic-kitchens.github.io/epic-fields/).  
+1. Aria Datesets: ADT, AEA, Hot3D, Epic-Field. For Aria Datasets, please refer to [project-aria](https://www.projectaria.com/resources/#resources-datasets) and prepare data with [Nerfstudio](https://docs.nerf.studio/quickstart/custom_dataset.html#aria). The EPIC-Field dataset could be accessed [here](https://epic-kitchens.github.io/epic-fields/).  
 
 2. [NerF On-the-Go and RobustNerf](https://borealisdata.ca/dataset.xhtml?persistentId=doi%3A10.5683%2FSP3%2FWOFXFT), please follow the instructions in [SpotLessSplats](https://github.com/lilygoli/SpotLessSplats/tree/main) for dataset processing.
 
@@ -38,35 +36,23 @@ To visualize gaussian models, we recommend using this amazing gaussian splatting
 
 
 ## Training--原论文复现
-For training video datasets as  `cut_roasted_beef` of Neu3D dataset, run
-```python
-##### please refer to the configs in folder arguments for different dataset setup
-python train.py -s data/dynerf/cut_roasted_beef --port 6019 --expname cut_roasted_beef --configs arguments/video_dataset/Neu3D.py
-```
-
-For training image datasets for distractor-free scene modeling as Neu3D scenes such as `cut_roasted_beef`, run
-```python
-######## please use configs nerfonthego.py for indoor scenes
-python3 train.py -s data/nerf-on-the-go/mountain --port 6019 --expname mountain --configs arguments/image_dataset/nerfonthego_outdoor.py
+Run the following training script, please refer to the DeGauss codebase for changing the configs and the corresponding folder arguments for different dataset setup
+```bash
+bash run_train.sh
 ```
 
 ## Rendering
-Run the following script to render Neu3D dataset.
-```python
-######## please use configs nerfonthego.py for indoor scenes
-python render_gaussian_dynerf.py -s path_to_dataset --port 6017 --expname Neu3Drender --configs
-arguments/video_dataset/Neu3D.py" --render_checkpoint path_to_checkpoint
+Run the following script to render the scene after training.
+```bash
+######## please refer to the configs in the rendering script
+bash run_render.sh
 ```
 
 ## Evaluation
 You can just run the following script to evaluate the model.
-
-```python
-#### for dynamic scene eval -d : output base folder -s scene name
-python calc_metric.py -d './test/' -s flame_steak_sparse
-
-#### for distractor static scene eval -d : output base folder -s scene name
-python calc_metric_static.py -d './test/' -s patio_high 
+```bash
+#### change the corresponding configs/scripts for dynamic/static scene
+bash run_evaluation.sh
 ```
 
 ## 运行改进后的实验
@@ -80,7 +66,7 @@ git checkout semantic
 git checkout illu
 ```
 
-**training/evaluation/render运行方式同上，更改文件夹输出名称即可**
+**training/evaluation/render 运行方式同上，更改文件夹输出名称即可**
 
 
 
